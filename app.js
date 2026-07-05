@@ -193,10 +193,10 @@ function parseSmartInput(inputStr) {
   }
 
   // 提取數字作為金額
-  const numbers = inputStr.match(/\d+/g);
+  const numbers = inputStr.match(/\d+(\.\d+)?/g);
   let amount = 0;
   if (numbers && numbers.length > 0) {
-    amount = parseInt(numbers[numbers.length - 1], 10);
+    amount = parseFloat(numbers[numbers.length - 1]);
   }
 
   // 2. 判斷類別 (基於關鍵字比對)
@@ -718,7 +718,7 @@ document.getElementById('btn-confirm-save').addEventListener('click', (e) => {
   
   try {
     const title = document.getElementById('confirm-title').value.trim();
-    const amount = parseInt(document.getElementById('confirm-amount').value, 10);
+    const amount = parseFloat(document.getElementById('confirm-amount').value);
     const categoryId = document.getElementById('confirm-category').value;
     const currency = document.getElementById('confirm-currency').value;
     const date = document.getElementById('confirm-date').value;
@@ -1177,7 +1177,7 @@ function silentCloudSync() {
         return {
           id: t.id || 't-' + Date.now(),
           title: t.title || '',
-          amount: Math.abs(parseInt(t.amount, 10)) || 0,
+          amount: Math.abs(parseFloat(t.amount)) || 0,
           categoryId: cat ? cat.id : 'cat-food',
           currency: txCurCode,
           date: t.date || getTodayDateTimeString(),
@@ -1530,7 +1530,7 @@ document.addEventListener('DOMContentLoaded', () => {
             return {
               id: t.id || 't-' + Date.now(),
               title: t.title || '',
-              amount: Math.abs(parseInt(t.amount, 10)) || 0,
+              amount: Math.abs(parseFloat(t.amount)) || 0,
               categoryId: cat ? cat.id : 'cat-food',
               currency: txCurCode,
               date: t.date || getTodayDateTimeString(),
