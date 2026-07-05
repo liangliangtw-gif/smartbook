@@ -1,0 +1,467 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="語音記帳">
+  <title>語音智慧記帳 PWA</title>
+  
+  <!-- SEO & PWA Meta -->
+  <meta name="description" content="專為 iPhone 設計的智慧語音記帳 PWA。支援語音識別與打字雙模輸入，智慧解析帳目。">
+  <link rel="manifest" href="manifest.json">
+  <link rel="apple-touch-icon" href="icon.png">
+  
+  <!-- Google Fonts & FontAwesome -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700&family=Noto+Sans+TC:wght@300;400;500;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  
+  <!-- Style Sheet -->
+  <link rel="stylesheet" href="style.css?v=20">
+</head>
+<body>
+
+  <!-- App 容器 -->
+  <div class="app-container">
+    
+    <!-- 頂部狀態欄 (為 iOS 瀏海預留) -->
+    <header class="app-header">
+      <div class="header-logo">
+        <img src="icon.png" alt="Logo" class="app-logo-img">
+        <span class="brand-name">SmartBook</span>
+      </div>
+      <div class="header-action">
+        <span id="network-status" class="online-badge"><i class="fa-solid fa-cloud"></i> 離線可用</span>
+      </div>
+    </header>
+
+    <!-- 主內容區 (依頁籤切換) -->
+    <main class="app-content">
+      
+      <!-- 頁籤一：首頁大盤 & 歷史列表 -->
+      <section id="tab-dashboard" class="content-tab active">
+        <!-- 總覽卡片 -->
+        <div class="overview-card">
+          <div class="card-bg-gradient"></div>
+          <div class="overview-header">
+            <span class="label">本月結餘</span>
+            <span class="period" id="current-month-year">2026 年 7 月</span>
+          </div>
+          <div class="balance-value" id="total-balance">$0</div>
+          <div class="stats-row">
+            <div class="stat-col income">
+              <span class="stat-label"><i class="fa-solid fa-arrow-down-long"></i> 總收入</span>
+              <span class="stat-val" id="total-income">$0</span>
+            </div>
+            <div class="divider"></div>
+            <div class="stat-col expense">
+              <span class="stat-label"><i class="fa-solid fa-arrow-up-long"></i> 總支出</span>
+              <span class="stat-val" id="total-expense">$0</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- 區間篩選面板 -->
+        <div class="filter-card" style="background: var(--card-bg); border: 1px solid var(--card-border); border-radius: 18px; padding: 12px 16px; margin-bottom: 16px; display: flex; flex-direction: column; gap: 8px;">
+          <div style="display: flex; justify-content: space-between; align-items: center; cursor: pointer;" id="btn-toggle-filter">
+            <span style="font-size: 13px; font-weight: 600; color: var(--text-muted);"><i class="fa-solid fa-filter"></i> 區間查詢 / 篩選明細</span>
+            <i class="fa-solid fa-chevron-down" id="filter-chevron" style="font-size: 12px; color: var(--text-muted); transition: transform 0.2s;"></i>
+          </div>
+          <div id="filter-inputs" style="display: none; flex-direction: column; gap: 10px; margin-top: 8px; border-top: 1px solid var(--card-border); padding-top: 10px;">
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+              <div class="form-group" style="display: flex; flex-direction: column; gap: 4px;">
+                <label style="font-size: 11px; color: var(--text-muted);">開始日期</label>
+                <input type="date" id="filter-start-date" style="background-color: var(--input-bg); border: 1px solid var(--card-border); border-radius: 8px; padding: 6px 10px; color: var(--text-main); font-size: 12px; font-family: var(--font-family); outline: none;">
+              </div>
+              <div class="form-group" style="display: flex; flex-direction: column; gap: 4px;">
+                <label style="font-size: 11px; color: var(--text-muted);">結束日期</label>
+                <input type="date" id="filter-end-date" style="background-color: var(--input-bg); border: 1px solid var(--card-border); border-radius: 8px; padding: 6px 10px; color: var(--text-main); font-size: 12px; font-family: var(--font-family); outline: none;">
+              </div>
+            </div>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 4px;">
+              <button id="btn-filter-apply" class="btn-primary" style="padding: 8px; font-size: 12px; border-radius: 8px;"><i class="fa-solid fa-magnifying-glass"></i> 搜尋</button>
+              <button id="btn-filter-reset" class="btn-secondary" style="padding: 8px; font-size: 12px; border-radius: 8px;"><i class="fa-solid fa-rotate-left"></i> 重設</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- 交易記錄列表區 -->
+        <div class="section-header">
+          <h2>記帳歷史記錄</h2>
+          <button id="btn-clear-history" class="text-btn"><i class="fa-solid fa-trash-can"></i> 清除</button>
+        </div>
+        
+        <!-- 共同記帳人篩選 -->
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; padding: 0 4px;">
+          <span style="font-size: 12px; color: var(--text-muted);"><i class="fa-solid fa-users"></i> 篩選記帳人：</span>
+          <select id="user-filter-select" style="background-color: var(--input-bg); border: 1px solid var(--card-border); border-radius: 8px; padding: 5px 10px; color: var(--text-main); font-size: 12px; font-family: var(--font-family); outline: none;">
+            <option value="all">合併計算 (全部)</option>
+          </select>
+        </div>
+        
+        <div class="transactions-list-container" id="transactions-list">
+          <div class="empty-state">
+            <i class="fa-solid fa-receipt"></i>
+            <p>目前尚無記帳資料</p>
+            <span>點擊下方麥克風或加號開始記帳吧！</span>
+          </div>
+        </div>
+      </section>
+
+      <!-- 頁籤二：新增記帳頁 (智慧記帳) -->
+      <section id="tab-add" class="content-tab">
+        <div class="add-container">
+          <h2 class="add-title">智慧語音記帳</h2>
+          <div style="text-align: center; margin-top: -10px; margin-bottom: 20px;">
+            <span id="current-user-badge" style="background: rgba(99,102,241,0.15); color: var(--primary); padding: 4px 12px; border-radius: 20px; font-size: 13px; font-weight: 600; display: inline-flex; align-items: center; gap: 6px;">
+              <i class="fa-solid fa-user-pen"></i> 目前記帳人：<span id="current-user-name-label">預設記帳人</span>
+            </span>
+          </div>
+          <p class="add-subtitle">您可以用說的，也可以用打字的，系統會自動幫您解析金額、品項和類別。</p>
+
+          <!-- 語音錄音控制區 -->
+          <div class="voice-box" id="voice-box">
+            <div class="pulse-ring" id="pulse-ring"></div>
+            <button id="btn-mic" class="btn-mic">
+              <i class="fa-solid fa-microphone"></i>
+            </button>
+            <span class="mic-status" id="mic-status">點擊麥克風開始說話</span>
+            <p class="voice-example">例如：「中午吃牛肉麵花了150元」</p>
+          </div>
+
+          <!-- 輸入框與文字記帳 -->
+          <div class="input-card">
+            <div class="input-row">
+              <input type="text" id="text-input" placeholder="或是手動輸入... (例如：早餐 80)" autocomplete="off">
+              <button id="btn-parse-text" class="btn-send"><i class="fa-solid fa-wand-magic-sparkles"></i> 解析</button>
+            </div>
+            <p class="speech-result" id="speech-result-preview"></p>
+          </div>
+
+          <!-- 解析確認卡片 (預設隱藏) -->
+          <div id="parse-confirm-card" class="confirm-card">
+            <h3 id="confirm-card-title"><i class="fa-solid fa-magnifying-glass-chart"></i> 解析確認</h3>
+            <div class="confirm-form">
+              <div class="form-group">
+                <label>品項</label>
+                <input type="text" id="confirm-title" placeholder="品項名稱">
+              </div>
+              <div class="form-group-row">
+                <div class="form-group">
+                  <label>金額</label>
+                  <input type="number" id="confirm-amount" placeholder="金額">
+                </div>
+                <div class="form-group">
+                  <label>幣別</label>
+                  <select id="confirm-currency">
+                    <option value="TWD">新台幣 (NT$)</option>
+                    <option value="USD">美金 (US$)</option>
+                    <option value="JPY">日圓 (JP¥)</option>
+                    <option value="EUR">歐元 (€)</option>
+                    <option value="CNY">人民幣 (CN¥)</option>
+                    <option value="HKD">港幣 (HK$)</option>
+                    <option value="KRW">韓元 (₩)</option>
+                    <option value="THB">泰銖 (฿)</option>
+                    <option value="GBP">英鎊 (£)</option>
+                    <option value="AUD">澳幣 (A$)</option>
+                    <option value="SGD">新加坡幣 (S$)</option>
+                  </select>
+                </div>
+              </div>
+              <div class="form-group">
+                <label>類別</label>
+                <select id="confirm-category">
+                  <!-- 動態載入類別 -->
+                </select>
+              </div>
+              <div class="form-group">
+                <label>日期</label>
+                <input type="date" id="confirm-date">
+              </div>
+              <div class="confirm-actions">
+                <button id="btn-confirm-cancel" class="btn-secondary">取消</button>
+                <button id="btn-confirm-save" class="btn-primary">確認儲存</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 頁籤三：自訂類別與統計圖表 -->
+      <section id="tab-settings" class="content-tab">
+        <!-- 類別管理 -->
+        <div class="section-card">
+          <div class="card-header-row">
+            <h3>類別管理</h3>
+            <button id="btn-open-category-modal" class="btn-accent-sm"><i class="fa-solid fa-plus"></i> 新增類別</button>
+          </div>
+          <div class="category-grid" id="category-list">
+            <!-- 動態載入類別列表 -->
+          </div>
+        </div>
+        
+        <!-- 幣別設定 -->
+        <div class="section-card">
+          <h3>預設幣別設定</h3>
+          <div class="form-group" style="margin-top: 10px;">
+            <select id="currency-select" style="width: 100%; background-color: var(--input-bg); border: 1px solid var(--card-border); border-radius: 10px; padding: 10px 12px; color: var(--text-main); font-family: var(--font-family); font-size: 14px; outline: none; margin-top: 6px;">
+              <option value="TWD">新台幣 (NT$)</option>
+              <option value="USD">美金 (US$)</option>
+              <option value="JPY">日圓 (JP¥)</option>
+              <option value="EUR">歐元 (€)</option>
+              <option value="CNY">人民幣 (CN¥)</option>
+              <option value="HKD">港幣 (HK$)</option>
+              <option value="KRW">韓元 (₩)</option>
+              <option value="THB">泰銖 (฿)</option>
+              <option value="GBP">英鎊 (£)</option>
+              <option value="AUD">澳幣 (A$)</option>
+              <option value="SGD">新加坡幣 (S$)</option>
+            </select>
+          </div>
+        </div>
+        
+        <!-- 匯率設定 -->
+        <div class="section-card">
+          <h3>匯率設定 (基準為台幣 TWD)</h3>
+          <div class="confirm-form" style="margin-top: 10px; gap: 8px;">
+            <div id="exchange-rates-container">
+              <!-- 動態載入各個幣別的匯率輸入欄位 -->
+            </div>
+            <button id="btn-save-rates" class="btn-primary" style="margin-top: 10px; width: 100%;"><i class="fa-solid fa-floppy-disk"></i> 儲存匯率</button>
+          </div>
+        </div>
+        
+        <!-- 新增自訂幣別 -->
+        <div class="section-card">
+          <h3>新增自訂幣別</h3>
+          <div class="confirm-form" style="margin-top: 10px; gap: 8px;">
+            <div class="form-group-row" style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+              <div class="form-group">
+                <label>幣別代碼 (例如: CAD)</label>
+                <input type="text" id="new-currency-code" placeholder="大寫英文 3 碼" maxlength="3" style="width: 100%; box-sizing: border-box; background-color: var(--input-bg); border: 1px solid var(--card-border); border-radius: 10px; padding: 10px 12px; color: var(--text-main); font-family: var(--font-family); font-size: 14px; outline: none;">
+              </div>
+              <div class="form-group">
+                <label>幣別名稱 (例如: 加幣)</label>
+                <input type="text" id="new-currency-name" placeholder="中文名稱" style="width: 100%; box-sizing: border-box; background-color: var(--input-bg); border: 1px solid var(--card-border); border-radius: 10px; padding: 10px 12px; color: var(--text-main); font-family: var(--font-family); font-size: 14px; outline: none;">
+              </div>
+            </div>
+            <div class="form-group-row" style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 6px;">
+              <div class="form-group">
+                <label>貨幣符號 (例如: C$)</label>
+                <input type="text" id="new-currency-symbol" placeholder="字首符號" style="width: 100%; box-sizing: border-box; background-color: var(--input-bg); border: 1px solid var(--card-border); border-radius: 10px; padding: 10px 12px; color: var(--text-main); font-family: var(--font-family); font-size: 14px; outline: none;">
+              </div>
+              <div class="form-group">
+                <label>對台幣匯率 (例如: 24.2)</label>
+                <input type="number" id="new-currency-rate" step="0.01" placeholder="1 該幣別 = 幾元台幣" style="width: 100%; box-sizing: border-box; background-color: var(--input-bg); border: 1px solid var(--card-border); border-radius: 10px; padding: 10px 12px; color: var(--text-main); font-family: var(--font-family); font-size: 14px; outline: none;">
+              </div>
+            </div>
+            <button id="btn-add-custom-currency" class="btn-primary" style="margin-top: 10px; width: 100%; background: linear-gradient(135deg, var(--primary) 0%, var(--accent) 100%);"><i class="fa-solid fa-plus"></i> 新增自訂幣別</button>
+        </div>
+        
+        <!-- 共同記帳人設定 -->
+        <div class="section-card">
+          <h3>共同記帳人設定</h3>
+          <div class="confirm-form" style="margin-top: 10px; gap: 8px;">
+            <div class="form-group">
+              <label>目前您的記帳姓名/暱稱</label>
+              <input type="text" id="username-input" placeholder="例如：爸爸、媽媽" style="width: 100%; box-sizing: border-box; background-color: var(--input-bg); border: 1px solid var(--card-border); border-radius: 10px; padding: 10px 12px; color: var(--text-main); font-family: var(--font-family); font-size: 14px; outline: none; margin-top: 4px;">
+            </div>
+          </div>
+        </div>
+
+        <!-- Google 試算表同步 -->
+        <div class="section-card">
+          <h3>Google 試算表同步 (雲端備份)</h3>
+          <div class="confirm-form" style="margin-top: 10px; gap: 8px;">
+            <div class="form-group">
+              <label>Google Apps Script 網址</label>
+              <input type="text" id="gas-url" placeholder="貼上您的 Apps Script 部署網址..." style="width: 100%; background-color: var(--input-bg); border: 1px solid var(--card-border); border-radius: 10px; padding: 10px 12px; color: var(--text-main); font-family: var(--font-family); font-size: 14px; outline: none; margin-top: 6px;">
+            </div>
+            <div class="form-group-row" style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 10px;">
+              <button id="btn-backup-sheets" class="btn-primary" style="width: 100%; background: linear-gradient(135deg, #10b981, #059669);"><i class="fa-solid fa-cloud-arrow-up"></i> 備份至雲端</button>
+              <button id="btn-restore-sheets" class="btn-secondary" style="width: 100%;"><i class="fa-solid fa-cloud-arrow-down"></i> 從雲端還原</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- 資料備份與移轉 (匯出/匯入) -->
+        <div class="section-card">
+          <h3>資料備份與移轉 (跨裝置同步)</h3>
+          <div class="confirm-form" style="margin-top: 10px; gap: 8px;">
+            <p style="font-size: 11px; color: var(--text-muted); line-height: 1.5;">您可以使用此功能將所有記帳明細、自訂類別、自訂幣別與外觀設定一次性匯出，並在其他手機或電腦上匯入還原：</p>
+            <textarea id="backup-text-area" rows="4" placeholder="點擊下方「產生備份字串」進行複製，或在此貼上備份字串點擊「匯入並還原」..." style="width: 100%; background-color: var(--input-bg); border: 1px solid var(--card-border); border-radius: 10px; padding: 10px; color: var(--text-main); font-family: monospace; font-size: 11px; outline: none; resize: vertical; box-sizing: border-box;"></textarea>
+            <div class="form-group-row" style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 6px;">
+              <button id="btn-export-backup" class="btn-secondary" style="width: 100%; font-size: 12px; padding: 8px;"><i class="fa-solid fa-copy"></i> 產生備份字串</button>
+              <button id="btn-import-backup" class="btn-primary" style="width: 100%; font-size: 12px; padding: 8px; background: linear-gradient(135deg, var(--primary) 0%, var(--accent) 100%);"><i class="fa-solid fa-file-import"></i> 匯入並還原資料</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- 介面外觀自訂 -->
+        <div class="section-card">
+          <h3>介面外觀自訂</h3>
+          <div class="customizer-form" style="margin-top: 15px; display: flex; flex-direction: column; gap: 15px;">
+            <!-- 主題顏色選擇 -->
+            <div class="form-group">
+              <label style="font-size: 13px; color: var(--text-muted);">主題風格色彩</label>
+              <div class="theme-picker" style="display: flex; gap: 12px; margin-top: 8px;">
+                <button class="theme-dot active" data-theme="indigo" style="background: linear-gradient(135deg, #6366f1, #8b5cf6); width: 32px; height: 32px; border-radius: 50%; border: 2px solid transparent; cursor: pointer; outline: none; transition: transform 0.2s;"></button>
+                <button class="theme-dot" data-theme="emerald" style="background: linear-gradient(135deg, #10b981, #059669); width: 32px; height: 32px; border-radius: 50%; border: 2px solid transparent; cursor: pointer; outline: none; transition: transform 0.2s;"></button>
+                <button class="theme-dot" data-theme="amber" style="background: linear-gradient(135deg, #f59e0b, #d97706); width: 32px; height: 32px; border-radius: 50%; border: 2px solid transparent; cursor: pointer; outline: none; transition: transform 0.2s;"></button>
+                <button class="theme-dot" data-theme="rose" style="background: linear-gradient(135deg, #ec4899, #db2777); width: 32px; height: 32px; border-radius: 50%; border: 2px solid transparent; cursor: pointer; outline: none; transition: transform 0.2s;"></button>
+                <button class="theme-dot" data-theme="cyan" style="background: linear-gradient(135deg, #06b6d4, #0891b2); width: 32px; height: 32px; border-radius: 50%; border: 2px solid transparent; cursor: pointer; outline: none; transition: transform 0.2s;"></button>
+              </div>
+            </div>
+            
+            <!-- 背景底色選擇 -->
+            <div class="form-group">
+              <label style="font-size: 13px; color: var(--text-muted);">介面背景底色</label>
+              <div class="bg-theme-picker" style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin-top: 8px;">
+                <button class="bg-theme-btn active" data-bg="dark" style="background: #0b0f19; color: #f8fafc; border: 1px solid var(--card-border); border-radius: 8px; padding: 6px; font-size: 12px; cursor: pointer; transition: all 0.2s;">深邃暗藍</button>
+                <button class="bg-theme-btn" data-bg="light" style="background: #ffffff; color: #0f172a; border: 1px solid var(--card-border); border-radius: 8px; padding: 6px; font-size: 12px; cursor: pointer; transition: all 0.2s;">簡約柔白</button>
+                <button class="bg-theme-btn" data-bg="black" style="background: #000000; color: #ffffff; border: 1px solid var(--card-border); border-radius: 8px; padding: 6px; font-size: 12px; cursor: pointer; transition: all 0.2s;">極致純黑</button>
+              </div>
+            </div>
+            
+            <!-- 字體大小調整 -->
+            <div class="form-group">
+              <div style="display: flex; justify-content: space-between; align-items: center;">
+                <label style="font-size: 13px; color: var(--text-muted);">字體大小縮放</label>
+                <span id="font-scale-value" style="font-size: 13px; color: var(--primary); font-weight: 600;">100%</span>
+              </div>
+              <input type="range" id="font-scale-slider" min="0.85" max="1.3" step="0.05" value="1.0" style="width: 100%; margin-top: 8px; accent-color: var(--primary); background: rgba(255,255,255,0.1); border-radius: 8px; height: 6px; outline: none; -webkit-appearance: none;">
+            </div>
+          </div>
+        </div>
+        
+        <!-- 簡單的類別圓餅圖/比例分析 -->
+        <div class="section-card">
+          <h3>支出類別佔比</h3>
+          <div class="chart-container">
+            <div class="chart-placeholder" id="chart-placeholder">
+              <div class="chart-bar-list" id="chart-bars">
+                <!-- 動態載入長條比例圖 -->
+              </div>
+            </div>
+          </div>
+        </div>
+        <p style="text-align: center; color: var(--text-muted); font-size: 11px; margin-top: 20px; opacity: 0.6; padding-bottom: 20px;">SmartBook PWA 版本: v20</p>
+      </section>
+      
+    </main>
+
+    <!-- 底部導覽欄 (適配 iOS 底部安全區域) -->
+    <nav class="app-navigation">
+      <button class="nav-item active" data-tab="tab-dashboard">
+        <i class="fa-solid fa-chart-pie"></i>
+        <span>帳目明細</span>
+      </button>
+      <button class="nav-item add-btn-tab" data-tab="tab-add" id="nav-add-btn">
+        <div class="nav-add-icon-bg">
+          <i class="fa-solid fa-plus"></i>
+        </div>
+        <span class="add-text">記一筆</span>
+      </button>
+      <button class="nav-item" data-tab="tab-settings">
+        <i class="fa-solid fa-tags"></i>
+        <span>類別設定</span>
+      </button>
+    </nav>
+
+  </div>
+
+  <!-- 新增類別 Modal 彈出視窗 -->
+  <div class="modal-overlay" id="category-modal">
+    <div class="modal-container">
+      <div class="modal-header">
+        <h3>新增自訂類別</h3>
+        <button class="close-modal-btn" id="btn-close-category-modal">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label>類別名稱</label>
+          <input type="text" id="new-cat-name" placeholder="例如：寵物、醫療">
+        </div>
+        <div class="form-group">
+          <label>選擇圖標 (Emoji)</label>
+          <div class="emoji-selector" id="emoji-selector">
+            <span class="emoji-option active" data-emoji="🍔">🍔</span>
+            <span class="emoji-option" data-emoji="👕">👕</span>
+            <span class="emoji-option" data-emoji="🏠">🏠</span>
+            <span class="emoji-option" data-emoji="🚗">🚗</span>
+            <span class="emoji-option" data-emoji="📚">📚</span>
+            <span class="emoji-option" data-emoji="🎮">🎮</span>
+            <span class="emoji-option" data-emoji="💰">💰</span>
+            <span class="emoji-option" data-emoji="🐶">🐶</span>
+            <span class="emoji-option" data-emoji="💊">💊</span>
+            <span class="emoji-option" data-emoji="✈️">✈️</span>
+            <span class="emoji-option" data-emoji="☕">☕</span>
+            <span class="emoji-option" data-emoji="🎁">🎁</span>
+          </div>
+        </div>
+        <div class="form-group">
+          <label>選擇代表顏色</label>
+          <div class="color-selector" id="color-selector">
+            <span class="color-option active" data-color="#ef4444" style="background-color: #ef4444;"></span>
+            <span class="color-option" data-color="#f97316" style="background-color: #f97316;"></span>
+            <span class="color-option" data-color="#eab308" style="background-color: #eab308;"></span>
+            <span class="color-option" data-color="#10b981" style="background-color: #10b981;"></span>
+            <span class="color-option" data-color="#06b6d4" style="background-color: #06b6d4;"></span>
+            <span class="color-option" data-color="#3b82f6" style="background-color: #3b82f6;"></span>
+            <span class="color-option" data-color="#6366f1" style="background-color: #6366f1;"></span>
+            <span class="color-option" data-color="#a855f7" style="background-color: #a855f7;"></span>
+            <span class="color-option" data-color="#ec4899" style="background-color: #ec4899;"></span>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-secondary" id="btn-cancel-category">取消</button>
+        <button class="btn-primary" id="btn-save-category">儲存類別</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 清除資料設定彈出視窗 (Modal) -->
+  <div class="modal-overlay" id="clear-modal">
+    <div class="modal-card" style="max-width: 360px;">
+      <div class="modal-header">
+        <h3><i class="fa-solid fa-triangle-exclamation" style="color: var(--error);"></i> 清除記帳資料</h3>
+        <button class="btn-close-modal" id="btn-close-clear-modal">&times;</button>
+      </div>
+      <div class="modal-body" style="gap: 12px;">
+        <p style="font-size: 13px; color: var(--text-muted); line-height: 1.5;">請選擇要清除的資料區間範圍（此動作無法復原）：</p>
+        
+        <div style="display: flex; flex-direction: column; gap: 10px; margin-top: 10px;">
+          <!-- 區間刪除按鈕 -->
+          <button id="btn-clear-range" class="btn-secondary" style="text-align: left; padding: 12px; border-radius: 10px; display: flex; flex-direction: column; gap: 4px; align-items: flex-start; justify-content: center; width: 100%;">
+            <span style="font-size: 14px; font-weight: 600; color: var(--text-main);"><i class="fa-solid fa-calendar-minus"></i> 僅清除目前篩選區間</span>
+            <span id="clear-range-desc" style="font-size: 11px; color: var(--text-muted);">本月 的 0 筆帳目</span>
+          </button>
+          
+          <!-- 自訂區間刪除 -->
+          <div style="border: 1px solid var(--card-border); border-radius: 10px; padding: 10px; display: flex; flex-direction: column; gap: 8px;">
+            <span style="font-size: 12px; font-weight: 600; color: var(--text-main);"><i class="fa-solid fa-calendar-days"></i> 指定自訂清除區間</span>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+              <input type="date" id="clear-start-date" style="background-color: var(--input-bg); border: 1px solid var(--card-border); border-radius: 6px; padding: 6px; color: var(--text-main); font-size: 11px; font-family: var(--font-family);">
+              <input type="date" id="clear-end-date" style="background-color: var(--input-bg); border: 1px solid var(--card-border); border-radius: 6px; padding: 6px; color: var(--text-main); font-size: 11px; font-family: var(--font-family);">
+            </div>
+            <button id="btn-clear-custom" class="btn-primary" style="padding: 8px; font-size: 12px; background: linear-gradient(135deg, #ef4444, #dc2626); width: 100%;"><i class="fa-solid fa-trash-can"></i> 清除指定區間資料</button>
+          </div>
+          
+          <!-- 全刪按鈕 -->
+          <button id="btn-clear-all" class="btn-secondary" style="text-align: left; padding: 12px; border-radius: 10px; display: flex; flex-direction: column; gap: 4px; align-items: flex-start; justify-content: center; width: 100%; border-color: rgba(239, 68, 68, 0.3);">
+            <span style="font-size: 14px; font-weight: 600; color: var(--error);"><i class="fa-solid fa-dumpster-fire"></i> 清除全部歷史資料</span>
+            <span style="font-size: 11px; color: var(--text-muted);">清空所有記帳記錄（包含其他月份）</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- JavaScript 控制 -->
+  <script src="app.js?v=20"></script>
+</body>
+</html>
