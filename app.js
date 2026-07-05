@@ -1660,11 +1660,13 @@ document.addEventListener('DOMContentLoaded', () => {
   const btnClearRange = document.getElementById('btn-clear-range');
   if (btnClearRange) {
     btnClearRange.addEventListener('click', () => {
-      if (confirm('確定要清除此區間的所有記帳記錄嗎？此動作無法復原。')) {
+      if (confirm('確定要清除目前篩選區間中您個人的所有交易嗎？此動作無法復原。')) {
         if (state.queryStart && state.queryEnd) {
           state.transactions = state.transactions.filter(t => {
             const tDateStr = t.date ? t.date.split(' ')[0] : '';
-            return tDateStr < state.queryStart || tDateStr > state.queryEnd;
+            const isInRange = (tDateStr >= state.queryStart && tDateStr <= state.queryEnd);
+            const isCurrentUser = (t.user === state.userName || (!t.user && state.userName === '預設記帳人'));
+            return !(isInRange && isCurrentUser);
           });
         } else {
           const now = new Date();
@@ -1672,14 +1674,18 @@ document.addEventListener('DOMContentLoaded', () => {
           const currentMonth = now.getMonth();
           state.transactions = state.transactions.filter(t => {
             const tDate = new Date(t.date);
-            return !(tDate.getFullYear() === currentYear && tDate.getMonth() === currentMonth);
+            const isInRange = (tDate.getFullYear() === currentYear && tDate.getMonth() === currentMonth);
+            const isCurrentUser = (t.user === state.userName || (!t.user && state.userName === '預設記帳人'));
+            return !(isInRange && isCurrentUser);
           });
         }
         saveState();
-        renderDashboard();
-        renderCharts();
+        
+        try { renderDashboard(); } catch(e){}
+        try { renderCharts(); } catch(e){}
+        
         clearModal.classList.remove('active');
-        alert('清除成功！');
+        alert('清除成功');
       }
     });
   }
@@ -1690,7 +1696,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const startVal = document.getElementById('clear-start-date').value;
       const endVal = document.getElementById('clear-end-date').value;
       if (!startVal || !endVal) {
-        alert('請選擇要清除的開始與結束日期！');
+        alert('請選擇清除開始與結束日期！');
         return;
       }
       if (startVal > endVal) {
@@ -1700,19 +1706,25 @@ document.addEventListener('DOMContentLoaded', () => {
       
       const count = state.transactions.filter(t => {
         const tDateStr = t.date ? t.date.split(' ')[0] : '';
-        return tDateStr >= startVal && tDateStr <= endVal;
+        const isInRange = (tDateStr >= startVal && tDateStr <= endVal);
+        const isCurrentUser = (t.user === state.userName || (!t.user && state.userName === '預設記帳人'));
+        return isInRange && isCurrentUser;
       }).length;
       
-      if (confirm(`確定要清除自訂區間 (${startVal} ~ ${endVal}) 的 ${count} 筆帳目嗎？此動作無法復原。`)) {
+      if (confirm(`確定要清除自訂區間(${startVal} ~ ${endVal}) 中您個人的所有帳目嗎？此動作無法復原。`)) {
         state.transactions = state.transactions.filter(t => {
           const tDateStr = t.date ? t.date.split(' ')[0] : '';
-          return tDateStr < startVal || tDateStr > endVal;
+          const isInRange = (tDateStr >= startVal && tDateStr <= endVal);
+          const isCurrentUser = (t.user === state.userName || (!t.user && state.userName === '預設記帳人'));
+          return !(isInRange && isCurrentUser);
         });
         saveState();
-        renderDashboard();
-        renderCharts();
+        
+        try { renderDashboard(); } catch(e){}
+        try { renderCharts(); } catch(e){}
+        
         clearModal.classList.remove('active');
-        alert('清除成功！');
+        alert('清除成功');
       }
     });
   }
@@ -1720,13 +1732,32 @@ document.addEventListener('DOMContentLoaded', () => {
   const btnClearAll = document.getElementById('btn-clear-all');
   if (btnClearAll) {
     btnClearAll.addEventListener('click', () => {
-      if (confirm('警告：確定要清空所有歷史資料嗎？這將刪除所有月份的記帳記錄且無法復原！')) {
-        state.transactions = [];
-        saveState();
-        renderDashboard();
-        renderCharts();
-        clearModal.classList.remove('active');
-        alert('已清空所有歷史資料！');
+      if (confirm('警告：確定要清除您個人的所有歷史資料嗎？（這將只會刪除您自己的記帳記錄，不會影響其他共同記帳人）')) {
+        try {
+          state.transactions = state.transactions.filter(t => {
+            const isCurrentUser = (t.user === state.userName || (!t.user && state.userName === '預設記帳人'));
+            return !isCurrentUser;
+          });
+          saveState();
+          
+          try {
+            renderDashboard();
+          } catch (errDash) {
+            console.error("清除後 renderDashboard 失敗:", errDash);
+          }
+          
+          try {
+            renderCharts();
+          } catch (errCharts) {
+            console.error("清除後 renderCharts 失敗:", errCharts);
+          }
+          
+          clearModal.classList.remove('active');
+          alert('已清除您個人的所有歷史資料！');
+        } catch (err) {
+          console.error("清除資料時發生錯誤:", err);
+          alert("清除資料失敗: " + err.message);
+        }
       }
     });
   }
