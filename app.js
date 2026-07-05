@@ -716,100 +716,117 @@ document.getElementById('btn-confirm-cancel').addEventListener('click', (e) => {
 document.getElementById('btn-confirm-save').addEventListener('click', (e) => {
   e.preventDefault();
   
-  const title = document.getElementById('confirm-title').value.trim();
-  const amount = parseInt(document.getElementById('confirm-amount').value, 10);
-  const categoryId = document.getElementById('confirm-category').value;
-  const currency = document.getElementById('confirm-currency').value;
-  const date = document.getElementById('confirm-date').value;
+  try {
+    const title = document.getElementById('confirm-title').value.trim();
+    const amount = parseInt(document.getElementById('confirm-amount').value, 10);
+    const categoryId = document.getElementById('confirm-category').value;
+    const currency = document.getElementById('confirm-currency').value;
+    const date = document.getElementById('confirm-date').value;
 
-  if (!title) {
-    alert('品項不能為空！');
-    return;
-  }
-  if (isNaN(amount) || amount <= 0) {
-    alert('請輸入大於 0 的正確金額！');
-    return;
-  }
-  if (!date) {
-    alert('請選擇日期！');
-    return;
-  }
-
-  if (state.editingTxId) {
-    // 編輯修改已有帳目
-    const txIndex = state.transactions.findIndex(t => t.id === state.editingTxId);
-    if (txIndex !== -1) {
-      state.transactions[txIndex].title = title;
-      state.transactions[txIndex].amount = amount;
-      state.transactions[txIndex].categoryId = categoryId;
-      state.transactions[txIndex].currency = currency;
-      
-      const originalTx = state.transactions[txIndex];
-      state.transactions[txIndex].user = originalTx.user || state.userName;
-      
-      const originalDatePart = originalTx.date ? originalTx.date.split(' ')[0] : '';
-      if (originalDatePart === date) {
-        // 日期沒變，保留原先精確時間
-        state.transactions[txIndex].date = originalTx.date;
-      } else {
-        // 日期變了，加上目前的時分秒
-        const now = new Date();
-        const timeStr = [
-          now.getHours().toString().padStart(2, '0'),
-          now.getMinutes().toString().padStart(2, '0'),
-          now.getSeconds().toString().padStart(2, '0')
-        ].join(':');
-        state.transactions[txIndex].date = `${date} ${timeStr}`;
-      }
+    if (!title) {
+      alert('品項不能為空！');
+      return;
     }
-    state.editingTxId = null; // 重設編輯狀態
-    document.getElementById('confirm-card-title').innerHTML = '<i class="fa-solid fa-magnifying-glass-chart"></i> 解析確認';
-    document.getElementById('btn-confirm-save').innerText = '確認儲存';
-  } else {
-    // 儲存時加上目前時間秒數
-    const now = new Date();
-    const timeStr = [
-      now.getHours().toString().padStart(2, '0'),
-      now.getMinutes().toString().padStart(2, '0'),
-      now.getSeconds().toString().padStart(2, '0')
-    ].join(':');
-    const dateTimeStr = `${date} ${timeStr}`;
+    if (isNaN(amount) || amount <= 0) {
+      alert('請輸入大於 0 的正確金額！');
+      return;
+    }
+    if (!date) {
+      alert('請選擇日期！');
+      return;
+    }
 
-    // 新增交易
-    const newTx = {
-      id: 't-' + Date.now(),
-      title: title,
-      amount: amount,
-      categoryId: categoryId,
-      currency: currency,
-      date: dateTimeStr,
-      user: state.userName
-    };
+    if (state.editingTxId) {
+      // 編輯修改已存帳目
+      const txIndex = state.transactions.findIndex(t => t.id === state.editingTxId);
+      if (txIndex !== -1) {
+        state.transactions[txIndex].title = title;
+        state.transactions[txIndex].amount = amount;
+        state.transactions[txIndex].categoryId = categoryId;
+        state.transactions[txIndex].currency = currency;
+        
+        const originalTx = state.transactions[txIndex];
+        state.transactions[txIndex].user = originalTx.user || state.userName;
+        
+        const originalDatePart = originalTx.date ? originalTx.date.split(' ')[0] : '';
+        if (originalDatePart === date) {
+          state.transactions[txIndex].date = originalTx.date;
+        } else {
+          const now = new Date();
+          const timeStr = [
+            now.getHours().toString().padStart(2, '0'),
+            now.getMinutes().toString().padStart(2, '0'),
+            now.getSeconds().toString().padStart(2, '0')
+          ].join(':');
+          state.transactions[txIndex].date = `${date} ${timeStr}`;
+        }
+      }
+      state.editingTxId = null;
+      document.getElementById('confirm-card-title').innerHTML = '<i class="fa-solid fa-magnifying-glass-chart"></i> 解析確認';
+      document.getElementById('btn-confirm-save').innerText = '確認儲存';
+    } else {
+      const now = new Date();
+      const timeStr = [
+        now.getHours().toString().padStart(2, '0'),
+        now.getMinutes().toString().padStart(2, '0'),
+        now.getSeconds().toString().padStart(2, '0')
+      ].join(':');
+      const dateTimeStr = `${date} ${timeStr}`;
 
-    state.transactions.unshift(newTx);
+      const newTx = {
+        id: 't-' + Date.now(),
+        title: title,
+        amount: amount,
+        categoryId: categoryId,
+        currency: currency,
+        date: dateTimeStr,
+        user: state.userName || '預設記帳人'
+      };
+
+      state.transactions.unshift(newTx);
+    }
+
+    saveState();
+    
+    // 用 try-catch 保護渲染部分，防堵渲染出錯導致儲存流程卡死
+    try {
+      renderDashboard();
+    } catch (errDash) {
+      console.error("renderDashboard 渲染失敗，但已保存資料:", errDash);
+    }
+    
+    try {
+      renderCharts();
+    } catch (errChart) {
+      console.error("renderCharts 渲染失敗，但已保存資料:", errChart);
+    }
+    
+    try {
+      triggerAutoBackup();
+    } catch (errBackup) {
+      console.error("背景自動同步失敗，但已保存資料:", errBackup);
+    }
+
+    // 清空輸入並關閉卡片 (這才是最核心的動作，不應被前面的錯誤中斷)
+    document.getElementById('parse-confirm-card').style.display = 'none';
+    document.getElementById('speech-result-preview').innerText = '儲存成功！';
+    document.getElementById('text-input').value = '';
+
+    if (navigator.vibrate) {
+      navigator.vibrate(80);
+    }
+
+    setTimeout(() => {
+      const dashboardTab = document.querySelector('[data-tab="tab-dashboard"]');
+      if (dashboardTab) {
+        dashboardTab.click();
+      }
+    }, 500);
+
+  } catch (err) {
+    console.error("儲存按鈕事件中發生未預料的系統錯誤:", err);
+    alert("儲存時發生系統錯誤，請在主畫面重新整理後再試: " + err.message);
   }
-
-  saveState();
-  renderDashboard();
-  renderCharts();
-  
-  // 觸發雲端自動同步備份 (背景執行)
-  triggerAutoBackup();
-
-  // 清空輸入
-  document.getElementById('parse-confirm-card').style.display = 'none';
-  document.getElementById('speech-result-preview').innerText = '儲存成功！';
-  document.getElementById('text-input').value = '';
-
-  // 震動回饋 (如果裝置支援)
-  if (navigator.vibrate) {
-    navigator.vibrate(80);
-  }
-
-  // 跳轉回首頁
-  setTimeout(() => {
-    document.querySelector('[data-tab="tab-dashboard"]').click();
-  }, 500);
 });
 
 // 6.6 手動文字解析按鈕事件
