@@ -226,8 +226,8 @@ function parseSmartInput(inputStr) {
   // 3. 提取品項名稱 (過濾掉數字、單位、幣別名稱等)
   let title = inputStr;
   
-  // 移除數字
-  title = title.replace(/\d+/g, '');
+  // 移除數字（支援小數點）
+  title = title.replace(/\d+(\.\d+)?/g, '');
   
   // 移除幣別關鍵字
   const currencyKeywords = ['美金', '美元', '日幣', '日圓', '日元', '歐元', '人民幣', '台幣', '新台幣', 'usd', 'jpy', 'eur', 'cny', 'rmb'];
